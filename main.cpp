@@ -1,8 +1,13 @@
 
 #include<limits>
 #include<array>
+#include<tuple>
+#include<type_traits>
+#include<functional>
 
 #include<SDL2/SDL.h>
+
+#include"static_vector.hpp"
 
 #pragma region ApplicationQuit
 static bool isAppRunning = true;
@@ -18,66 +23,105 @@ static void ApplicationQuit() {
 #pragma region ECS
 
 #pragma region Entity
-using Entity = uint64_t;
-constexpr Entity InvalidEntity = std::numeric_limits<uint64_t>::max();
+using Entity = size_t;
+constexpr Entity InvalidEntity = std::numeric_limits<size_t>::max();
 constexpr size_t MaxEntityCount = 1024;
+
+template<size_t size>
+using EntityRange = itlib::static_vector<Entity, size>;
 #pragma endregion
 
 #pragma region Component
 template<typename T>
-struct Component {
-	T test;
-};
-
-template<typename T, size_t size>
-struct ComponentArray
-{
-public:
-	void push_back(const T& element) {
-		push_back(std::move(element));
-	}
-	void push_back(T&& element) {
-		_data[_pivot] = std::move(element);
-		_pivot += 1;
-	}
-
-	T& operator[](size_t index) {
-		return _data[index];
-	}
-
-private:
-	std::array<T, size> _data{ };
-	size_t _pivot{ 0 };
-};
-
-template<typename T, size_t size>
-struct ComponentArraySlice {
-public:
-	using iterator = typename std::array<T, size>::iterator;
-	using const_iterator = typename std::array<T, size>::const_iterator;
-
-
-	_NODISCARD _CONSTEXPR17 const_iterator begin() const noexcept {
-		return _begin;
-	}
-
-	_NODISCARD _CONSTEXPR17 const_iterator end() const noexcept {
-		return _end;
-	}
-
-private:
-	const_iterator _begin;
-	const_iterator _end;
-};
-
+using ComponentArray = itlib::static_vector<T, MaxEntityCount>;
 #pragma endregion
 
 #pragma endregion
+
+template<typename... Types>
+using ComponentTable = std::tuple<ComponentArray<Types>...>;
+//
+//template<typename... types, typename currentType, typename... setTypes>
+//void set(ComponentTable<types...>& table, currentType current, setTypes... setTo);
+//
+//
+//template<typename... types, typename... setTypes>
+//void set(ComponentTable<types...>& table, setTypes... setTo) {
+//	
+//}
+//
+
+
+template<typename GetterType, typename... Types>
+ComponentArray<GetterType>& Get(ComponentTable<Types...>& table) {
+	static_assert((std::is_same_v<GetterType, Types> || ...) && "Table does not contain Type");
+	return std::get<ComponentArray<GetterType>>(table);
+}
+
+template<typename SetterType, typename... Types>
+void Set(ComponentTable<Types...>& table, Entity entity, SetterType setTo) {
+	static_assert((std::is_same_v<SetterType, Types> || ...) && "Table does not contain Type");
+	auto& column = std::get<ComponentArray<SetterType>>(table);
+	column[entity] = setTo;
+}
+
+template<typename... Types>
+Entity Create(ComponentTable<Types...>& table, std::tuple<Types...> data) {
+	(std::get<ComponentArray<Types>>(table).push_back(std::get<Types>(data)), ...);
+	return table._Myfirst._Val.size() - 1;
+}
+
+template<typename... Types, size_t size>
+void ForEach(ComponentTable<Types...>& table, EntityRange<size> entityRange, std::function<void(Types...)> func) {
+	const size_t max = table._Myfirst._Val.size();
+	using TypesPlain = std::tuple<std::remove_reference_t<std::remove_const_t<Types>>...>;
+
+	for (size_t entity = 0; entity < max, entity += 1) {
+		
+	}
+}
+
+
+template<size_t size, typename... Types>
+void Test(EntityRange<size> entityRange, std::function<void(Types...)> tests) {
+
+}
+
+//template<typename... types>
+//class ComponentTable {
+//public:
+//
+//private:
+//	std::tuple<ComponentArray<types>...> data{ };
+//};
 
 #pragma region Main
+
+static ComponentTable<int, float> masterTable;
+
 int main(int, char**) {
-	ComponentArray<size_t, 1024> IDs;
-	IDs.push_back(5);
+	//PushBack(std::get<ComponentArray<int>>(masterTable));
+	Entity player = Create(masterTable, { 0, 0.0f});
+	Set(masterTable, player, 5);
+	auto& intColumn = Get<int>(masterTable);
+	auto& floatColumn = Get<float>(masterTable);
+	for (auto& bullshit : intColumn) {
+		// Do stuff on each int
+	}
+
+	for (auto& bullshit : floatColumn) {
+		// Do stuff on each float
+	}
+
+	EntityRange<3> range = {0, 1, 2 };
+
+	std::function<void(int, float)> testy;
+	ForEach(masterTable, range, testy);
+
+	std::tuple<int, float, char, size_t> test;
+	std::tuple<int, char> other;
+	auto lhs = std::tuple_cat(test, other);
+	std::tie(std::get<int>(test), std::get<int>(test), std::ignore, std::get<int>(test)) = test;
 
 	SDL_Window* window = SDL_CreateWindow("Basic Window", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 640, SDL_WINDOW_SHOWN);
 	SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
