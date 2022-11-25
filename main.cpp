@@ -285,6 +285,8 @@ int main(int, char**) {
 	Create(masterTable, { });
 	Create(masterTable, { });
 
+	Set(masterTable, player, Velocity{ 0.016f, 0.016f });
+
 	auto physicsTable = Where<Position, Speed, Velocity>(masterTable);
 	auto renderTable = Where<Position, Color>(masterTable);
 
