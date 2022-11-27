@@ -527,7 +527,7 @@ int main(int, char**) {
 
 	EntityRange<64> shipTextures{ };
 	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Sprites")) {
-		SDL_Texture* texture = IMG_LoadTexture(renderer, entry.path().string().c_str());
+		SDL_Texture* texture = IMG_LoadTexture(renderer, (const char*)entry.path().u8string().c_str());
 		shipTextures.push_back(CreateSingle(textureTable, { texture }));
 	}
 
@@ -594,7 +594,8 @@ int main(int, char**) {
 			if (input.justDown(SDL_SCANCODE_E)) {
 				texture.id++;
 			}
-			texture.id = texture.id % shipTextures.size();
+			std::cout << texture.id << '\n';
+			texture.id = (texture.id + shipTextures.size()) % shipTextures.size();
 
 			if (glm::length(direction) > 0.0f) {
 				direction = glm::normalize(direction);
