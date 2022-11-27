@@ -24,4 +24,78 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="Assets\Sprites\ship_0000.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0001.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0002.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0003.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0004.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0005.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0006.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0007.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0008.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0009.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0010.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0011.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0012.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0013.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0014.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0015.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0016.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0017.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0018.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0019.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0020.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0021.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0022.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="Assets\Sprites\ship_0023.png">
+      <Filter>Resource Files</Filter>
+    </Image>
+  </ItemGroup>
 </Project>
