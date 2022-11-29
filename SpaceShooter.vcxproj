@@ -155,6 +155,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="static_vector.hpp" />
+    <ClInclude Include="bitfield.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Sprites\ship_0000.png" />
