@@ -26,6 +26,9 @@
     <ClInclude Include="bitfield.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Entities.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="Assets\Sprites\ship_0000.png">

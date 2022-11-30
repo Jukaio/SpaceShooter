@@ -154,6 +154,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Entities.h" />
     <ClInclude Include="static_vector.hpp" />
     <ClInclude Include="bitfield.h" />
   </ItemGroup>
