@@ -151,10 +151,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Application.cpp" />
+    <ClCompile Include="Game.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Application.h" />
     <ClInclude Include="Entities.h" />
+    <ClInclude Include="Game.h" />
     <ClInclude Include="static_vector.hpp" />
     <ClInclude Include="bitfield.h" />
   </ItemGroup>

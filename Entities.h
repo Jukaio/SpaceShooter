@@ -225,7 +225,27 @@ struct union_type_seq<std::tuple<Dst...>, std::tuple<>> {
 	using type = std::tuple<Dst...>;
 };
 
+template<typename... Ts, typename... Types, size_t size>
+constexpr EntitySignature<sizeof...(Types)> Signature(const Table<size, Types...>& table) {
+	using namespace std;
+	using TableTuple = tuple<Types...>;
+	using Tuple = tuple<Ts...>;
 
+	static_assert(sizeof...(Types) > 0, "No data in table");
+
+	return[&] <size_t... Is>(std::index_sequence<Is...>) consteval {
+		return	(
+		(EntitySignature<sizeof...(Types)> { } |
+			(
+				EntitySignature<sizeof...(Types)> {
+				/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, TableTuple>>, Tuple>::value)
+					? 1ULL
+					: 0ULL
+				} << Is
+			)
+		) | ...);
+	} (std::make_index_sequence<sizeof...(Types)>{});
+}
 
 template<typename GetterType, typename... Types, size_t size>
 StaticDataArray<GetterType, size>& GetArray(Table<size, Types...>& table) {
@@ -245,6 +265,13 @@ GetterType& Get(Table<size, Types...>& table, Entity entity) {
 template<typename... Types, size_t size>
 EntitySignature<sizeof...(Types)>& GetSignature(Table<size, Types...>& table, Entity entity) {
 	return GetArray<EntitySignature<sizeof...(Types)>>(table)[entity];
+}
+
+template<typename... HasTypes, typename... Types, size_t size>
+bool Has(Table<size, Types...>& table, Entity entity) {
+	auto signature = GetSignature(table, entity);
+	auto testSignature = Signature<HasTypes...>(table);
+	return (testSignature & signature) == testSignature;
 }
 
 template<typename... Types, size_t size>
@@ -314,28 +341,6 @@ constexpr size_t Size(const Table<size, Types...>& table) {
 }
 
 
-template<typename... Ts, typename... Types, size_t size>
-constexpr EntitySignature<sizeof...(Types)> Signature(const Table<size, Types...>& table) {
-	using namespace std;
-	using TableTuple = tuple<Types...>;
-	using Tuple = tuple<Ts...>;
-
-	static_assert(sizeof...(Types) > 0, "No data in table");
-
-	return[&] <size_t... Is>(std::index_sequence<Is...>) consteval {
-		return	(
-		(EntitySignature<sizeof...(Types)> { } |
-			(
-				EntitySignature<sizeof...(Types)> {
-				/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, TableTuple>>, Tuple>::value)
-					? 1ULL
-					: 0ULL
-				} << Is
-			)
-		) | ...);
-	} (std::make_index_sequence<sizeof...(Types)>{});
-}
-
 
 template<typename... Types, size_t size>
 Entity CreateSingle(Table<size, Types...>& table, const EntitySignature<sizeof...(Types)>& signature = { }) {
@@ -366,7 +371,7 @@ constexpr Container CreateMultiple(Table<tableSize, Types...>& table, size_t cou
 	return entities;
 }
 
-template<typename... Types, size_t size, typename Func>
+template<typename... ExcludedTypes, typename... Types, size_t size, typename Func>
 constexpr void For(Table<size, Types...>& table, Func func) {
 	static_assert(sizeof...(Types) > 0, "No data in table");
 
@@ -381,26 +386,28 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 
 	// TODO: Implement signature check!
 	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
-		return	(
+		return (
+		(
+			EntitySignature<sizeof...(Types)> { } |
 			(
-				EntitySignature<sizeof...(Types)> { } |
-				(
-					EntitySignature<sizeof...(Types)> {
-			/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, B>>, A>::value)
-				? 1ULL
-				: 0ULL
-		} << Is
-					)
-				) | ...);
+				EntitySignature<sizeof...(Types)> {
+					/* Condition */ 
+					(is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, B>>, A>::value)
+					? 1ULL
+					: 0ULL
+				} << Is
+			)
+		) | ...);
 	} (std::make_index_sequence<sizeof...(Types)>{});
 
+	const auto excludeSignature = Signature<ExcludedTypes...>(table);
 
 	[&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
 		const auto max = Size(table);
-
 		for (size_t index = 0; index < max; index += 1) {
 			auto entitySignature = GetSignature(table, index);
-			if ((entitySignature & signature) == signature) {
+
+			if ((entitySignature & signature) == signature && !((entitySignature & excludeSignature) != 0)) {
 				func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...);
 			}
 		}
