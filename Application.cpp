@@ -1,6 +1,9 @@
 #include "Application.h"
 #include <filesystem>
 #include <string>
+
+#include <iostream>
+
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <assert.h>
@@ -26,7 +29,7 @@ Application::Application(const char* name) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 	IMG_Init(IMG_INIT_PNG);
 	window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 640, SDL_WINDOW_SHOWN);
-	renderer = SDL_CreateRenderer(window, -1, 0);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
 	SDL_AddEventWatch(QuitListener, this);
 }
@@ -53,6 +56,8 @@ void Application::Run() {
 		UpdateKeyboardStates();
 
 		{ // Calculate DeltaTime
+			//using namespace std::chrono_literals;
+
 			auto newTp = SDL_GetTicks64();
 			auto difference = newTp - tp;
 			dt = static_cast<float>(difference) / 1000.0f;
@@ -84,18 +89,18 @@ SDL_Texture* Application::LoadTexture(const std::filesystem::path& path) {
 	return IMG_LoadTexture(renderer, (const char*)path.u8string().c_str());
 }
 
-bool Application::isDown(SDL_Scancode key) const {
+bool Application::IsDown(SDL_Scancode key) const {
 	return currState[key];
 }
 
-bool Application::isUp(SDL_Scancode key) const {
+bool Application::IsUp(SDL_Scancode key) const {
 	return !currState[key];
 }
 
-bool Application::justDown(SDL_Scancode key) const {
+bool Application::JustDown(SDL_Scancode key) const {
 	return currState[key] && !prevState[key];
 }
 
-bool Application::justUp(SDL_Scancode key) const {
+bool Application::JustUp(SDL_Scancode key) const {
 	return !currState[key] && prevState[key];
 }

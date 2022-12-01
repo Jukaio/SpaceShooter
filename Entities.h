@@ -76,6 +76,8 @@ template<size_t size, typename... Types>
 //using Table = std::tuple<StaticDataArray<Types, size>...>;
 using Table = std::tuple<StaticDataArray<Entity, size>, StaticDataArray<EntitySignature<sizeof...(Types)>, size>, StaticDataArray<Types, size>...>;
 
+
+
 template<typename>
 struct Bitfield;
 
@@ -357,9 +359,8 @@ Entity CreateSingle(Table<size, Types...>& table, const EntitySignature<sizeof..
 }
 
 template<typename... Types, size_t size>
-void Destroy(Table<size, Types...>& table, Entity& entity) {
+void Destroy(Table<size, Types...>& table, Entity entity) {
 	SetSignature(table, entity, { }); // Set 0 signature :D 
-	entity = InvalidEntity;
 }
 
 template<ContainerType<Entity> Container, typename... Types, size_t tableSize>
@@ -383,8 +384,6 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 
 	static_assert(tupleSize > 0, "No Valid parameters in Function");
 
-
-	// TODO: Implement signature check!
 	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
 		return (
 		(
@@ -402,58 +401,25 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 
 	const auto excludeSignature = Signature<ExcludedTypes...>(table);
 
+	itlib::static_vector<Entity, size> entities;
+	const auto max = Size(table);
+	for (size_t index = 0; index < max; index += 1) {
+		auto entitySignature = GetSignature(table, index);
+
+		if ((entitySignature & signature) == signature && !((entitySignature & excludeSignature) != 0)) {
+			entities.push_back(index);
+		}
+	}
+
 	[&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
-		const auto max = Size(table);
-		for (size_t index = 0; index < max; index += 1) {
+		for (auto index : entities) {
 			auto entitySignature = GetSignature(table, index);
 
-			if ((entitySignature & signature) == signature && !((entitySignature & excludeSignature) != 0)) {
-				func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...);
-			}
+			func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...);
 		}
 	} (std::make_index_sequence<traits::arity>{});
 }
 
-template<ContainerType<Entity> Container, typename... Types, size_t size, typename Func>
-Container Where(Table<size, Types...>& table, Func func) {
-	Container container{};
-	using traits = function_traits<Func>;
-	using A = traits::tuple_type_nocvref;
-	using B = std::tuple<Types...>;
-	using Result = intersect_type_seq<A, B>::type;
-	constexpr size_t tupleSize = std::tuple_size_v<Result>;
-
-	// TODO: Implement signature check!
-	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
-		return(
-		(
-			EntitySignature<sizeof...(Types)> { } |
-			(
-				EntitySignature<sizeof...(Types)> {
-					/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, B>>, A>::value)
-					? 1ULL
-					: 0ULL
-				} << Is
-			)
-		) | ...);
-	} (std::make_index_sequence<sizeof...(Types)>{});
-
-
-	[&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
-		const auto max = Size(table);
-
-		for (size_t index = 0; index < max; index += 1) {
-			auto entitySignature = GetSignature(table, index);
-			if ((entitySignature & signature) == signature) {
-				if (func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...)) {
-					container.push_back(index);
-				}
-
-			}
-		}
-	} (std::make_index_sequence<traits::arity>{});
-	return container;
-}
 
 template<typename Container, typename... Types, size_t size, typename Func>
 constexpr void For(Table<size, Types...>& table, const Container& entities, Func func) {
@@ -475,3 +441,99 @@ constexpr void For(Table<size, Types...>& table, const Container& entities, Func
 	} (std::make_index_sequence<traits::arity>{});
 }
 
+template<ContainerType<Entity> Container, typename... ExcludedTypes, typename... Types, size_t size, typename Func>
+Container Where(Table<size, Types...>& table, Func func) {
+	Container container{};
+	using traits = function_traits<Func>;
+	using A = traits::tuple_type_nocvref;
+	using B = std::tuple<Types...>;
+	using Result = intersect_type_seq<A, B>::type;
+
+	// TODO: Implement signature check!
+	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
+		return(
+		(
+			EntitySignature<sizeof...(Types)> { } |
+			(
+				EntitySignature<sizeof...(Types)> {
+					/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, B>>, A>::value)
+					? 1ULL
+					: 0ULL
+				} << Is
+			)
+		) | ...);
+	} (std::make_index_sequence<sizeof...(Types)>{});
+
+	const auto excludeSignature = Signature<ExcludedTypes...>(table);
+
+	itlib::static_vector<Entity, size> entities;
+	const auto max = Size(table);
+	for (size_t index = 0; index < max; index += 1) {
+		auto entitySignature = GetSignature(table, index);
+
+		if ((entitySignature & signature) == signature && !((entitySignature & excludeSignature) != 0)) {
+			entities.push_back(index);
+		}
+	}
+
+	[&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
+		const auto max = Size(table);
+
+		for (const auto& index : entities) {
+			if (func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...)) {
+				container.push_back(index);
+			}
+		}
+	} (std::make_index_sequence<traits::arity>{});
+	return container;
+}
+
+
+template<typename... ExcludedTypes, typename... Types, size_t size, typename Func>
+Entity Find(Table<size, Types...>& table, Func func) {
+	using traits = function_traits<Func>;
+	using A = traits::tuple_type_nocvref;
+	using B = std::tuple<Types...>;
+	using Result = intersect_type_seq<A, B>::type;
+
+	// TODO: Implement signature check!
+	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
+		return(
+		(
+			EntitySignature<sizeof...(Types)> { } |
+			(
+				EntitySignature<sizeof...(Types)> {
+				/* Condition */ (is_member_of_type_seq<std::remove_cvref_t<std::tuple_element_t<Is, B>>, A>::value)
+					? 1ULL
+					: 0ULL
+				} << Is
+			)
+		) | ...);
+	} (std::make_index_sequence<sizeof...(Types)>{});
+
+	const auto excludeSignature = Signature<ExcludedTypes...>(table);
+
+	itlib::static_vector<Entity, size> entities;
+
+	const auto max = Size(table);
+	for (size_t index = 0; index < max; index += 1) {
+		auto entitySignature = GetSignature(table, index);
+
+		if ((entitySignature & signature) == signature && !((entitySignature & excludeSignature) != 0)) {
+			entities.push_back(index);
+		}
+	}
+
+	return [&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
+		const auto max = Size(table);
+
+		for (const auto& index : entities) {
+			if (func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...)) {
+				return index;
+			}
+		}
+		return InvalidEntity;
+	} (std::make_index_sequence<traits::arity>{});
+
+	return InvalidEntity;
+}

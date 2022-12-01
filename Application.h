@@ -29,10 +29,10 @@ public:
 
 	SDL_Texture* LoadTexture(const std::filesystem::path& path);
 
-	bool isDown(SDL_Scancode key) const;
-	bool isUp(SDL_Scancode key) const;
-	bool justDown(SDL_Scancode key) const;
-	bool justUp(SDL_Scancode key) const;
+	bool IsDown(SDL_Scancode key) const;
+	bool IsUp(SDL_Scancode key) const;
+	bool JustDown(SDL_Scancode key) const;
+	bool JustUp(SDL_Scancode key) const;
 
 	void GetWindowSize(int* width, int* height);
 

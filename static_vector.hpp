@@ -439,7 +439,7 @@ namespace itlib
         {
             I_ITLIB_STATIC_VECTOR_OUT_OF_RANGE_IF(size() >= Capacity);
 
-            ::new(m_data + m_size) T(std::move(v));
+             ::new(m_data + m_size) T(std::move(v));
             ++m_size;
         }
 

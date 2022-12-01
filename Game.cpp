@@ -8,7 +8,6 @@
 
 #include "Entities.h"
 
-
 struct Speed {
 	float value;
 };
@@ -53,11 +52,35 @@ struct EnemyRow {
 
 };
 
-struct Child {
+struct Bullet {
+
+};
+
+struct EnemyGroupMember {
 	Entity parentID;
 };
 
-using TextureTable = Table<64, std::filesystem::path, SDL_Texture*>;
+struct TextureName {
+	std::string value; // Just stay short string pls
+};
+
+struct TileProperty {
+
+};
+
+struct SpriteProperty {
+
+};
+
+struct SingleShot {
+	uint64_t nextTimeAvailable{ 0 };
+};
+
+struct DoubleShot {
+	uint64_t nextTimeAvailable{ 0 };
+};
+
+using TextureTable = Table<256, TextureName, std::filesystem::path, SDL_Texture*, TileProperty, SpriteProperty>;
 static TextureTable textureTable;
 
 struct ColliderID {
@@ -65,17 +88,19 @@ struct ColliderID {
 };
 
 // Make table from signatures would be cool to keep this part slim
-using GameplayTable = Table<
-	1024, 
+using GameplayTable = Table<10240,
 	TextureID,
-	Child,
+	EnemyGroupMember,
 	EnemyAI,
 	EnemyRow,
+	SingleShot,
+	DoubleShot,
 	ColliderID, 
 	Position,
 	LookDirection,
 	Dimension, 
 	Input, 
+	Bullet,
 	Speed, 
 	Velocity, 
 	Color
@@ -104,22 +129,46 @@ ColliderTable colliderTable{};
 void LoadTextures(Game* game) {
 	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Sprites")) {
 		SDL_Texture* texture = game->LoadTexture(entry.path());
-		auto entity = CreateSingle(textureTable, Signature<SDL_Texture*, std::filesystem::path>(textureTable));
-		Set(textureTable, entity, texture);
-		Set(textureTable, entity, entry.path());
+		auto entity = CreateSingle(textureTable, Signature<SpriteProperty>(textureTable));
+		Add(textureTable, entity, TextureName{ entry.path().filename().replace_extension("").string() });
+		Add(textureTable, entity, texture);
+		Add(textureTable, entity, entry.path());
+	}
+
+	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Tiles")) {
+		SDL_Texture* texture = game->LoadTexture(entry.path());
+		auto entity = CreateSingle(textureTable, Signature<TileProperty>(textureTable));
+		Add(textureTable, entity, TextureName{ entry.path().filename().replace_extension("").string() });
+		Add(textureTable, entity, texture);
+		Add(textureTable, entity, entry.path());
 	}
 }
 
+Entity SetupBullet(Position pos, Dimension size, LookDirection lookDirection, Entity recycle = InvalidEntity) {
+
+
+	Dimension bulletSize { 16.0f, 16.0f };
+
+	float x = pos.x + (size.w * 0.5f) - (bulletSize.w * 0.5f);
+	float y = pos.y + (size.h * 0.5f) - (bulletSize.h * 0.5f);
+
+	auto bullet = recycle == InvalidEntity ? CreateSingle(gameplayTable, Signature<Bullet>(gameplayTable)) : recycle;
+	Add(gameplayTable, bullet, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "tile_0000"; }) }); // Might be heavy, but right now O(0)
+	Add(gameplayTable, bullet, Color{ 0, 255, 0, 255 });
+	Add(gameplayTable, bullet, Position{ x, y });
+	Add(gameplayTable, bullet, bulletSize);
+	Add(gameplayTable, bullet, lookDirection);
+	Add(gameplayTable, bullet, Velocity{ lookDirection.x, lookDirection.y });
+	Add(gameplayTable, bullet, Speed{ 180.0f });
+	return bullet;
+}
+
+
 void SetupPlayer() {
-	constexpr auto signature = Signature<Input, Velocity>(gameplayTable);
+	constexpr auto signature = Signature<Input, SingleShot, DoubleShot, Velocity>(gameplayTable);
 	auto player = CreateSingle(gameplayTable, signature);
 
-	// Add after signature is set
-	auto shipTextures = Where<EntityContainer>(textureTable, [](SDL_Texture* texture) {
-		return texture != nullptr;
-	});
-
-	Add(gameplayTable, player, TextureID{ shipTextures[0] });
+	Add(gameplayTable, player, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "ship_0000"; }) });
 	Add(gameplayTable, player, Speed{ 240.0f });
 	Add(gameplayTable, player, Color{ 0, 255, 0, 255 });
 	Add(gameplayTable, player, Position{ 400.0f, 500.0f });
@@ -128,10 +177,6 @@ void SetupPlayer() {
 }
 
 void SetupEnemy(Game* game) {
-	auto shipTextures = Where<EntityContainer>(textureTable, [](SDL_Texture* texture) {
-		return texture != nullptr;
-	});
-	auto enemyTextures = shipTextures[1];
 
 	constexpr auto signature = Signature<EnemyAI>(gameplayTable);
 	int windowWidth, windowHeight;
@@ -140,7 +185,7 @@ void SetupEnemy(Game* game) {
 	game->GetWindowSize(&windowWidth, &windowHeight);
 
 	const Dimension dim{ 64.0f, 64.0f };
-	const TextureID textureID{ enemyTextures };
+	const TextureID textureID{ Find(textureTable, [](TextureName& name) { return name.value == "ship_0001"; }) };
 
 	const float rowWidth = (width * dim.w);
 	const float offsetX = (windowWidth - (width * dim.w)) * 0.5f;
@@ -158,7 +203,7 @@ void SetupEnemy(Game* game) {
 			Add(gameplayTable, enemy, Color{ 255, 0, 0, 255 });
 			Add(gameplayTable, enemy, Position{ (x * dim.w), 0 });
 			Add(gameplayTable, enemy, LookDirection{ 0.0f, 1.0f });
-			Add(gameplayTable, enemy, Child { parent });
+			Add(gameplayTable, enemy, EnemyGroupMember { parent });
 		}
 
 		Add(gameplayTable, parent, Position{ offsetX, yPos});
@@ -173,19 +218,31 @@ void ApplyInputToVelocity(Game* game) {
 	For(gameplayTable, [game](const Input& input, Velocity& velocity) {
 		velocity = Velocity{ 0.0f, 0.0f };
 		glm::vec2 direction{ 0.0f, 0.0f };
-		if (game->isDown(SDL_SCANCODE_S)) {
+		if (game->IsDown(SDL_SCANCODE_S)) {
 			direction.y = 1.0f;
 		}
-		if (game->isDown(SDL_SCANCODE_W)) {
+		if (game->IsDown(SDL_SCANCODE_W)) {
 			direction.y = -1.0f;
 		}
-		if (game->isDown(SDL_SCANCODE_A)) {
+		if (game->IsDown(SDL_SCANCODE_A)) {
 			direction.x = -1.0f;
 		}
-		if (game->isDown(SDL_SCANCODE_D)) {
+		if (game->IsDown(SDL_SCANCODE_D)) {
 			direction.x = 1.0f;
 		}
 		velocity = { direction.x, direction.y };
+	});
+}
+
+void ApplySpeedToVelocity() {
+	For(gameplayTable, [](Speed speed, Velocity& velocity) {
+		glm::vec2 direction{ velocity.x, velocity.y };
+		if (glm::length(direction) > 0.0f) {
+			direction = glm::normalize(direction);
+		}
+
+		velocity.x = direction.x * speed.value;
+		velocity.y = direction.y * speed.value;
 	});
 }
 
@@ -198,7 +255,7 @@ void ApplyVelocity(float dt) {
 
 void ClampToScreen() {
 
-	For<Child>(gameplayTable, [](Input, Entity entity, Position& pos, Dimension size) {
+	For<EnemyGroupMember, EnemyRow, Bullet>(gameplayTable, [](Input, Entity entity, Position& pos, Dimension size) {
 		if (pos.x < 0.0f) {
 			pos.x = 0.0f;
 		}
@@ -215,6 +272,19 @@ void ClampToScreen() {
 	});
 }
 
+void BounceVelocityOfEnemyRows() {
+	For(gameplayTable, [](EnemyRow, Position pos, Dimension size, Speed speed, Velocity& velocity) {
+		if (pos.x < 0.0f) {
+			pos.x = 0.0f;
+			velocity.x = 1.0f * speed.value;
+		}
+		else if (pos.x + size.w > 800.0f) {
+			pos.x = 800 - size.w;
+			velocity.x = -1.0f * speed.value;
+		}
+	});
+}
+
 void DrawRect(SDL_Renderer* renderer) {
 	For(gameplayTable, [&renderer](Entity entity, Position pos, Dimension dim, Color color) {
 		int width;
@@ -223,14 +293,14 @@ void DrawRect(SDL_Renderer* renderer) {
 		int x = pos.x;
 		int y = pos.y;
 
-		if (Has<Child>(gameplayTable, entity)) {
-			auto parent = Get<Child>(gameplayTable, entity).parentID;
+		if (Has<EnemyGroupMember>(gameplayTable, entity)) {
+			auto parent = Get<EnemyGroupMember>(gameplayTable, entity).parentID;
 			while (true) {
 				auto p = Get<Position>(gameplayTable, parent);
 				x += p.x;
 				y += p.y;
-				if (Has<Child>(gameplayTable, parent)) {
-					parent = Get<Child>(gameplayTable, parent).parentID;
+				if (Has<EnemyGroupMember>(gameplayTable, parent)) {
+					parent = Get<EnemyGroupMember>(gameplayTable, parent).parentID;
 				}
 				else {
 					break;
@@ -245,6 +315,42 @@ void DrawRect(SDL_Renderer* renderer) {
 	});
 }
 
+void DrawLookDirection(SDL_Renderer* renderer) {
+	SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
+
+	// Something like this might be better
+	//EntityContainer nonEnemyGroupMembers{ };
+	//auto enemyGroupMembers = Where<EntityContainer>(gameplayTable, [&nonEnemyGroupMembers](Entity entity, Position pos, Dimension size, LookDirection dir) {
+	//	if (!Has<EnemyGroupMember>(gameplayTable, entity)) {
+	//		nonEnemyGroupMembers.push_back(entity);
+	//		return false;
+	//	}
+	//	return true; 
+	//});
+
+
+	For(gameplayTable, [renderer](Entity entity, Position pos, Dimension size, LookDirection dir) {
+		float x = pos.x + (size.w * 0.5f);
+		float y = pos.y + (size.h * 0.5f);
+
+		if (Has<EnemyGroupMember>(gameplayTable, entity)) {
+			auto parent = Get<EnemyGroupMember>(gameplayTable, entity).parentID;
+			while (true) {
+				auto p = Get<Position>(gameplayTable, parent);
+				x += p.x;
+				y += p.y;
+				if (Has<EnemyGroupMember>(gameplayTable, parent)) {
+					parent = Get<EnemyGroupMember>(gameplayTable, parent).parentID;
+				}
+				else {
+					break;
+				}
+			}
+		}
+		SDL_RenderDrawLineF(renderer, x, y, x + (dir.x * size.w), y + (dir.y * size.h));
+	});
+}
+
 void DrawSprite(SDL_Renderer* renderer) {
 	For(gameplayTable, [&renderer](Entity entity, Position pos, Dimension dim, TextureID texture) {
 		auto tex = Get<SDL_Texture*>(textureTable, texture.id);
@@ -255,14 +361,14 @@ void DrawSprite(SDL_Renderer* renderer) {
 		int x = pos.x;
 		int y = pos.y;
 
-		if (Has<Child>(gameplayTable, entity)) {
-			auto parent = Get<Child>(gameplayTable, entity).parentID;
+		if (Has<EnemyGroupMember>(gameplayTable, entity)) {
+			auto parent = Get<EnemyGroupMember>(gameplayTable, entity).parentID;
 			while (true) {
 				auto p = Get<Position>(gameplayTable, parent);
 				x += p.x;
 				y += p.y;
-				if (Has<Child>(gameplayTable, parent)) {
-					parent = Get<Child>(gameplayTable, parent).parentID;
+				if (Has<EnemyGroupMember>(gameplayTable, parent)) {
+					parent = Get<EnemyGroupMember>(gameplayTable, parent).parentID;
 				}
 				else {
 					break;
@@ -292,7 +398,6 @@ Game::Game(const char* name) : Application(name) {
 	std::cout << "=====================" << '\n';
 	std::cout << "=====================" << '\n' << '\n';
 
-
 	LoadTextures(this);
 	SetupPlayer();
 	SetupEnemy(this);
@@ -307,55 +412,55 @@ Game::~Game() {
 void Game::OnUpdate(float dt) {
 	ApplyInputToVelocity(this);
 
-	For(gameplayTable, [](Speed speed, Velocity& velocity) {
-		glm::vec2 direction{ velocity.x, velocity.y };
-		if (glm::length(direction) > 0.0f) {
-			direction = glm::normalize(direction);
+	For(gameplayTable, [this](Input, SingleShot& weapon, Entity entity, Position pos, Dimension size, LookDirection dir) {
+		const auto ticks = SDL_GetTicks64();
+		if (ticks > weapon.nextTimeAvailable && IsDown(SDL_SCANCODE_SPACE)) {
+			auto bullet = Find(gameplayTable, [](GameplayBitfield signature) {
+				return signature.none();
+			});
+			pos.y += (dir.y * (size.h * 0.25f));
+			SetupBullet(pos, size, dir, bullet);
+			weapon.nextTimeAvailable = ticks + 125;
 		}
-
-		velocity.x = direction.x * speed.value;
-		velocity.y = direction.y * speed.value;
 	});
+
+	For(gameplayTable, [this](Input, DoubleShot& weapon, Entity entity, Position pos, Dimension size, LookDirection dir) {
+		const auto ticks = SDL_GetTicks64();
+		if (ticks > weapon.nextTimeAvailable && IsDown(SDL_SCANCODE_SPACE)) {
+			auto bullet = Find(gameplayTable, [](GameplayBitfield signature) {
+				return signature.none();
+				});
+			float x = pos.x - (size.w * 0.25f);
+			SetupBullet({ x, pos.y }, size, dir, bullet);
+			bullet = Find(gameplayTable, [](GameplayBitfield signature) {
+				return signature.none();
+			});
+			x = pos.x + (size.w * 0.25f);
+			SetupBullet({ x, pos.y }, size, dir, bullet);
+			weapon.nextTimeAvailable = ticks + 125;
+		}
+	});
+	ApplySpeedToVelocity();
 
 	ApplyVelocity(dt);
 
 	ClampToScreen();
-
-	For(gameplayTable, [](EnemyRow, Position pos, Dimension size, Speed speed, Velocity& velocity) {
-		if (pos.x < 0.0f) {
-			pos.x = 0.0f;
-			velocity.x = 1.0f * speed.value;
+	
+	For(gameplayTable, [this](Bullet, Entity entity, Position& pos, Dimension size) {
+		if (pos.y < 0.0f || pos.y + size.h > 640.0f) {
+			Destroy(gameplayTable, entity);
 		}
-		else if (pos.x + size.w > 800.0f) {
-			pos.x = 800 - size.w;
-			velocity.x = -1.0f * speed.value;
+		else if (pos.y + size.h > 640.0f) {
+			Destroy(gameplayTable, entity);
 		}
 	});
+
+	BounceVelocityOfEnemyRows();
 }
 
 void Game::OnRender(float dt, SDL_Renderer* renderer) {
 	DrawRect(renderer);
 	DrawSprite(renderer);
-
-	SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
-	For(gameplayTable, [renderer](Entity entity, Position pos, Dimension size, LookDirection dir) {
-		float x = pos.x + (size.w * 0.5f);
-		float y = pos.y + (size.h * 0.5f);
-
-		if (Has<Child>(gameplayTable, entity)) {
-			auto parent = Get<Child>(gameplayTable, entity).parentID;
-			while (true) {
-				auto p = Get<Position>(gameplayTable, parent);
-				x += p.x;
-				y += p.y;
-				if (Has<Child>(gameplayTable, parent)) {
-					parent = Get<Child>(gameplayTable, parent).parentID;
-				}
-				else {
-					break;
-				}
-			}
-		}
-		SDL_RenderDrawLineF(renderer, x, y, x + (dir.x * size.w), y + (dir.y * size.h));
-	});
+	DrawLookDirection(renderer);
 }
+
