@@ -6,7 +6,8 @@
 #include<functional>
 #include<iostream>
 #include<concepts>
-
+#include<chrono>
+#include<typeinfo>
 #include"bitfield.h"
 
 #include"static_vector.hpp"
@@ -374,6 +375,7 @@ constexpr Container CreateMultiple(Table<tableSize, Types...>& table, size_t cou
 
 template<typename... ExcludedTypes, typename... Types, size_t size, typename Func>
 constexpr void For(Table<size, Types...>& table, Func func) {
+
 	static_assert(sizeof...(Types) > 0, "No data in table");
 
 	using traits = function_traits<Func>;
@@ -383,6 +385,7 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 	constexpr size_t tupleSize = std::tuple_size_v<Result>;
 
 	static_assert(tupleSize > 0, "No Valid parameters in Function");
+
 
 	constexpr EntitySignature<sizeof...(Types)> signature = [&] <size_t... Is>(std::index_sequence<Is...>) consteval {
 		return (
@@ -399,10 +402,10 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 		) | ...);
 	} (std::make_index_sequence<sizeof...(Types)>{});
 
-	const auto excludeSignature = Signature<ExcludedTypes...>(table);
-
 	itlib::static_vector<Entity, size> entities;
+
 	const auto max = Size(table);
+	const auto excludeSignature = Signature<ExcludedTypes...>(table);
 	for (size_t index = 0; index < max; index += 1) {
 		auto entitySignature = GetSignature(table, index);
 
@@ -413,8 +416,6 @@ constexpr void For(Table<size, Types...>& table, Func func) {
 
 	[&] <size_t... Is> (std::index_sequence<Is...>) constexpr {
 		for (auto index : entities) {
-			auto entitySignature = GetSignature(table, index);
-
 			func((Get<std::remove_cvref_t<std::tuple_element_t<Is, typename traits::tuple_type>>>(table, index))...);
 		}
 	} (std::make_index_sequence<traits::arity>{});
@@ -466,7 +467,9 @@ Container Where(Table<size, Types...>& table, Func func) {
 
 	const auto excludeSignature = Signature<ExcludedTypes...>(table);
 
+	// POD Vector could be even better tbh 
 	itlib::static_vector<Entity, size> entities;
+
 	const auto max = Size(table);
 	for (size_t index = 0; index < max; index += 1) {
 		auto entitySignature = GetSignature(table, index);

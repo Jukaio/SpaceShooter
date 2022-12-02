@@ -53,7 +53,7 @@ struct EnemyRow {
 };
 
 struct Bullet {
-
+	Entity owner{ 0 };
 };
 
 struct EnemyGroupMember {
@@ -73,11 +73,15 @@ struct SpriteProperty {
 };
 
 struct SingleShot {
+	uint64_t fireRate { 0 };
 	uint64_t nextTimeAvailable{ 0 };
+	float bulletSpeed { 0.0f };
 };
 
 struct DoubleShot {
+	uint64_t fireRate{ 0 };
 	uint64_t nextTimeAvailable{ 0 };
+	float bulletSpeed{ 0.0f };
 };
 
 using TextureTable = Table<256, TextureName, std::filesystem::path, SDL_Texture*, TileProperty, SpriteProperty>;
@@ -144,7 +148,7 @@ void LoadTextures(Game* game) {
 	}
 }
 
-Entity SetupBullet(Position pos, Dimension size, LookDirection lookDirection, Entity recycle = InvalidEntity) {
+Entity SetupBullet(Entity owner, Position pos, Dimension size, LookDirection lookDirection, float speed, Entity recycle = InvalidEntity) {
 
 
 	Dimension bulletSize { 16.0f, 16.0f };
@@ -153,19 +157,20 @@ Entity SetupBullet(Position pos, Dimension size, LookDirection lookDirection, En
 	float y = pos.y + (size.h * 0.5f) - (bulletSize.h * 0.5f);
 
 	auto bullet = recycle == InvalidEntity ? CreateSingle(gameplayTable, Signature<Bullet>(gameplayTable)) : recycle;
+	Add(gameplayTable, bullet, Bullet{ owner });
 	Add(gameplayTable, bullet, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "tile_0000"; }) }); // Might be heavy, but right now O(0)
 	Add(gameplayTable, bullet, Color{ 0, 255, 0, 255 });
 	Add(gameplayTable, bullet, Position{ x, y });
 	Add(gameplayTable, bullet, bulletSize);
 	Add(gameplayTable, bullet, lookDirection);
 	Add(gameplayTable, bullet, Velocity{ lookDirection.x, lookDirection.y });
-	Add(gameplayTable, bullet, Speed{ 180.0f });
+	Add(gameplayTable, bullet, Speed{ speed });
 	return bullet;
 }
 
 
 void SetupPlayer() {
-	constexpr auto signature = Signature<Input, SingleShot, DoubleShot, Velocity>(gameplayTable);
+	constexpr auto signature = Signature<Input, Velocity>(gameplayTable);
 	auto player = CreateSingle(gameplayTable, signature);
 
 	Add(gameplayTable, player, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "ship_0000"; }) });
@@ -174,6 +179,7 @@ void SetupPlayer() {
 	Add(gameplayTable, player, Position{ 400.0f, 500.0f });
 	Add(gameplayTable, player, Dimension{ 64.0f, 64.0f });
 	Add(gameplayTable, player, LookDirection{ 0.0f, -1.0f });
+	Add(gameplayTable, player, SingleShot { 500, 0, 360.0f });
 }
 
 void SetupEnemy(Game* game) {
@@ -273,7 +279,7 @@ void ClampToScreen() {
 }
 
 void BounceVelocityOfEnemyRows() {
-	For(gameplayTable, [](EnemyRow, Position pos, Dimension size, Speed speed, Velocity& velocity) {
+	For(gameplayTable, [](EnemyRow, Position& pos, Dimension size, Speed speed, Velocity& velocity) {
 		if (pos.x < 0.0f) {
 			pos.x = 0.0f;
 			velocity.x = 1.0f * speed.value;
@@ -419,8 +425,8 @@ void Game::OnUpdate(float dt) {
 				return signature.none();
 			});
 			pos.y += (dir.y * (size.h * 0.25f));
-			SetupBullet(pos, size, dir, bullet);
-			weapon.nextTimeAvailable = ticks + 125;
+			SetupBullet(entity, pos, size, dir, weapon.bulletSpeed, bullet);
+			weapon.nextTimeAvailable = ticks + weapon.fireRate;
 		}
 	});
 
@@ -429,20 +435,55 @@ void Game::OnUpdate(float dt) {
 		if (ticks > weapon.nextTimeAvailable && IsDown(SDL_SCANCODE_SPACE)) {
 			auto bullet = Find(gameplayTable, [](GameplayBitfield signature) {
 				return signature.none();
-				});
+			});
 			float x = pos.x - (size.w * 0.25f);
-			SetupBullet({ x, pos.y }, size, dir, bullet);
+			SetupBullet(entity, { x, pos.y }, size, dir, bullet);
 			bullet = Find(gameplayTable, [](GameplayBitfield signature) {
 				return signature.none();
 			});
 			x = pos.x + (size.w * 0.25f);
-			SetupBullet({ x, pos.y }, size, dir, bullet);
-			weapon.nextTimeAvailable = ticks + 125;
+			SetupBullet(entity, { x, pos.y }, size, dir, weapon.bulletSpeed, bullet);
+			weapon.nextTimeAvailable = ticks + weapon.fireRate;
 		}
 	});
 	ApplySpeedToVelocity();
 
 	ApplyVelocity(dt);
+
+	auto enemies = Where<EntityContainer>(gameplayTable, [](EnemyAI, Position, Dimension){ return true; });
+
+	For(gameplayTable, [&enemies](Entity entity, Bullet bullet, Position pos, Dimension dim) {
+		for (auto enemy : enemies) {
+			if (enemy != bullet.owner) {
+				auto enemyPos = Get<Position>(gameplayTable, enemy);
+				const auto enemyDim = Get<Dimension>(gameplayTable, enemy);
+
+				if (Has<EnemyGroupMember>(gameplayTable, enemy)) {
+					auto parent = Get<EnemyGroupMember>(gameplayTable, enemy).parentID;
+					while (true) {
+						auto p = Get<Position>(gameplayTable, parent);
+						enemyPos.x += p.x;
+						enemyPos.y += p.y;
+						if (Has<EnemyGroupMember>(gameplayTable, parent)) {
+							parent = Get<EnemyGroupMember>(gameplayTable, parent).parentID;
+						}
+						else {
+							break;
+						}
+					}
+				}
+
+				SDL_FRect enemyRect{ enemyPos.x, enemyPos.y, enemyDim.w, enemyDim.h };
+				SDL_FRect bulletRect{ pos.x, pos.y, dim.w, dim.h };
+				SDL_FRect result;
+				if (SDL_IntersectFRect(&enemyRect, &bulletRect, &result)) {
+					Destroy(gameplayTable, enemy);
+					Destroy(gameplayTable, entity);
+					return;
+				}
+			}
+		}
+	});
 
 	ClampToScreen();
 	

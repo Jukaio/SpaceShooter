@@ -29,7 +29,7 @@ Application::Application(const char* name) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 	IMG_Init(IMG_INIT_PNG);
 	window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 640, SDL_WINDOW_SHOWN);
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED /* | SDL_RENDERER_PRESENTVSYNC */);
 
 	SDL_AddEventWatch(QuitListener, this);
 }
@@ -49,9 +49,9 @@ void Application::GetWindowSize(int* width, int* height) {
 void Application::Run() {
 	auto tp = SDL_GetTicks64();
 	auto dt = 0.0f;
-
 	isRunning = true;
 	while (IsRunning()) {
+		auto start = std::chrono::high_resolution_clock::now();
 		SDL_PumpEvents();
 		UpdateKeyboardStates();
 
@@ -73,8 +73,10 @@ void Application::Run() {
 		OnRender(dt, renderer);
 
 		SDL_RenderPresent(renderer);
+		auto end = std::chrono::high_resolution_clock::now();
+		std::chrono::duration<double, std::milli> filterTime = end - start;
+		//std::cout << "\nFrame Time: \t" << filterTime.count() << '\n';
 	}
-
 }
 
 void Application::Quit() {
