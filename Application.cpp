@@ -1,6 +1,7 @@
 #include "Application.h"
 #include <filesystem>
 #include <string>
+#include<SDL2/SDL_ttf.h>
 
 #include <iostream>
 
@@ -9,6 +10,7 @@
 #include <assert.h>
 
 static int QuitListener(void* data, SDL_Event* e) {
+	
 	if (e->type == SDL_QUIT) {
 		Application* app = reinterpret_cast<Application*>(data);
 		app->Quit();
@@ -17,10 +19,14 @@ static int QuitListener(void* data, SDL_Event* e) {
 }
 
 void Application::UpdateKeyboardStates() {
-	int arrSize = 0;
-	auto* keyboardState = SDL_GetKeyboardState(&arrSize);
 	std::ignore = memcpy_s(prevState, sizeof(prevState), currState, sizeof(currState));
 
+	if (SDL_GetKeyboardFocus() != window) {
+		memset(currState, 0, sizeof(currState));
+		return;
+	}
+	int arrSize = 0;
+	auto* keyboardState = SDL_GetKeyboardState(&arrSize); 
 	auto err = memcpy_s(currState, sizeof(currState), keyboardState, arrSize);
 	assert(err == 0 && "Not enough memory space in input state type");
 }
@@ -28,6 +34,8 @@ void Application::UpdateKeyboardStates() {
 Application::Application(const char* name) {
 	SDL_Init(SDL_INIT_EVERYTHING);
 	IMG_Init(IMG_INIT_PNG);
+	TTF_Init();
+
 	window = SDL_CreateWindow(name, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 640, SDL_WINDOW_SHOWN);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED /* | SDL_RENDERER_PRESENTVSYNC */);
 
@@ -38,6 +46,7 @@ Application::~Application() {
 	SDL_DelEventWatch(QuitListener, this);
 	SDL_DestroyRenderer(renderer);
 	SDL_DestroyWindow(window);
+	TTF_Quit();
 	IMG_Quit();
 	SDL_Quit();
 }
@@ -49,33 +58,29 @@ void Application::GetWindowSize(int* width, int* height) {
 void Application::Run() {
 	auto tp = SDL_GetTicks64();
 	auto dt = 0.0f;
+	auto start = std::chrono::high_resolution_clock::now();
 	isRunning = true;
 	while (IsRunning()) {
-		auto start = std::chrono::high_resolution_clock::now();
 		SDL_PumpEvents();
 		UpdateKeyboardStates();
 
 		{ // Calculate DeltaTime
-			//using namespace std::chrono_literals;
-
 			auto newTp = SDL_GetTicks64();
 			auto difference = newTp - tp;
 			dt = static_cast<float>(difference) / 1000.0f;
 			tp = newTp;
 		}
 
-
-		OnUpdate(dt);
+		std::chrono::duration<float> dtChrono = std::chrono::high_resolution_clock::now() - start; //  std::ratio<1, 1>
+		start = std::chrono::high_resolution_clock::now();
+		OnUpdate(dtChrono.count());
 
 		SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 		SDL_RenderClear(renderer);
 
-		OnRender(dt, renderer);
+		OnRender(dtChrono.count(), renderer);
 
 		SDL_RenderPresent(renderer);
-		auto end = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double, std::milli> filterTime = end - start;
-		//std::cout << "\nFrame Time: \t" << filterTime.count() << '\n';
 	}
 }
 

@@ -41,6 +41,7 @@ private:
 
 	SDL_Window* window{ nullptr };
 	SDL_Renderer* renderer{ nullptr };
+
 	uint8_t currState[SDL_NUM_SCANCODES]{ };
 	uint8_t prevState[SDL_NUM_SCANCODES]{ };
 	bool isRunning{ false };

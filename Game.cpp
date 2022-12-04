@@ -5,6 +5,7 @@
 
 #include<SDL2/SDL.h>
 #include<SDL2/SDL_image.h>
+#include<SDL2/SDL_ttf.h>
 
 #include "Entities.h"
 
@@ -84,8 +85,11 @@ struct DoubleShot {
 	float bulletSpeed{ 0.0f };
 };
 
+using FontTable = Table<16, std::filesystem::path, TTF_Font*>;
+static FontTable fontTable{ };
+
 using TextureTable = Table<256, TextureName, std::filesystem::path, SDL_Texture*, TileProperty, SpriteProperty>;
-static TextureTable textureTable;
+static TextureTable textureTable{ };
 
 struct ColliderID {
 	Entity id;
@@ -133,7 +137,7 @@ ColliderTable colliderTable{};
 void LoadTextures(Game* game) {
 	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Sprites")) {
 		SDL_Texture* texture = game->LoadTexture(entry.path());
-		auto entity = CreateSingle(textureTable, Signature<SpriteProperty>(textureTable));
+		auto entity = CreateSingle(textureTable, Signature<TextureTable>::Filter<SpriteProperty>::Bits());
 		Add(textureTable, entity, TextureName{ entry.path().filename().replace_extension("").string() });
 		Add(textureTable, entity, texture);
 		Add(textureTable, entity, entry.path());
@@ -141,10 +145,19 @@ void LoadTextures(Game* game) {
 
 	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Tiles")) {
 		SDL_Texture* texture = game->LoadTexture(entry.path());
-		auto entity = CreateSingle(textureTable, Signature<TileProperty>(textureTable));
+		auto entity = CreateSingle(textureTable, Signature<TextureTable>::Filter<TileProperty>::Bits());
 		Add(textureTable, entity, TextureName{ entry.path().filename().replace_extension("").string() });
 		Add(textureTable, entity, texture);
 		Add(textureTable, entity, entry.path());
+	}
+}
+
+void LoadFonts() {
+	for (auto const& entry : std::filesystem::directory_iterator(std::filesystem::current_path() / "Assets" / "Fonts")) {
+		TTF_Font* font = TTF_OpenFont(entry.path().string().c_str(), 16);
+		auto entity = CreateSingle(fontTable);
+		Add(fontTable, entity, font);
+		Add(fontTable, entity, entry.path());
 	}
 }
 
@@ -156,7 +169,7 @@ Entity SetupBullet(Entity owner, Position pos, Dimension size, LookDirection loo
 	float x = pos.x + (size.w * 0.5f) - (bulletSize.w * 0.5f);
 	float y = pos.y + (size.h * 0.5f) - (bulletSize.h * 0.5f);
 
-	auto bullet = recycle == InvalidEntity ? CreateSingle(gameplayTable, Signature<Bullet>(gameplayTable)) : recycle;
+	auto bullet = recycle == InvalidEntity ? CreateSingle(gameplayTable, Signature<GameplayTable>::Filter<Bullet>::Bits()) : recycle;
 	Add(gameplayTable, bullet, Bullet{ owner });
 	Add(gameplayTable, bullet, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "tile_0000"; }) }); // Might be heavy, but right now O(0)
 	Add(gameplayTable, bullet, Color{ 0, 255, 0, 255 });
@@ -170,7 +183,7 @@ Entity SetupBullet(Entity owner, Position pos, Dimension size, LookDirection loo
 
 
 void SetupPlayer() {
-	constexpr auto signature = Signature<Input, Velocity>(gameplayTable);
+	constexpr auto signature = Signature<GameplayTable>::Filter<Input, Velocity>::Bits();
 	auto player = CreateSingle(gameplayTable, signature);
 
 	Add(gameplayTable, player, TextureID{ Find(textureTable, [](TextureName& name) { return name.value == "ship_0000"; }) });
@@ -180,11 +193,12 @@ void SetupPlayer() {
 	Add(gameplayTable, player, Dimension{ 64.0f, 64.0f });
 	Add(gameplayTable, player, LookDirection{ 0.0f, -1.0f });
 	Add(gameplayTable, player, SingleShot { 500, 0, 360.0f });
+	Add(gameplayTable, player, DoubleShot{ 500, 0, 360.0f });
 }
 
 void SetupEnemy(Game* game) {
 
-	constexpr auto signature = Signature<EnemyAI>(gameplayTable);
+	constexpr auto signature = Signature<GameplayTable>::Filter<EnemyAI>::Bits();
 	int windowWidth, windowHeight;
 	const int width = 12;
 	const int height = 6;
@@ -201,7 +215,7 @@ void SetupEnemy(Game* game) {
 		Velocity velocity{ y % 2 == 0 ? 1.0f : -1.0f, 0.0f };
 
 
-		auto parent = CreateSingle(gameplayTable, Signature<EnemyRow>(gameplayTable));
+		auto parent = CreateSingle(gameplayTable, Signature<GameplayTable>::Filter<EnemyRow>::Bits());
 		for (int x = 0; x < width; x++) {
 			auto enemy = CreateSingle(gameplayTable, signature);
 			Add(gameplayTable, enemy, textureID);
@@ -405,8 +419,11 @@ Game::Game(const char* name) : Application(name) {
 	std::cout << "=====================" << '\n' << '\n';
 
 	LoadTextures(this);
+	LoadFonts();
+	
 	SetupPlayer();
 	SetupEnemy(this);
+	
 }
 
 Game::~Game() {
@@ -429,7 +446,6 @@ void Game::OnUpdate(float dt) {
 			weapon.nextTimeAvailable = ticks + weapon.fireRate;
 		}
 	});
-
 	For(gameplayTable, [this](Input, DoubleShot& weapon, Entity entity, Position pos, Dimension size, LookDirection dir) {
 		const auto ticks = SDL_GetTicks64();
 		if (ticks > weapon.nextTimeAvailable && IsDown(SDL_SCANCODE_SPACE)) {
@@ -437,7 +453,7 @@ void Game::OnUpdate(float dt) {
 				return signature.none();
 			});
 			float x = pos.x - (size.w * 0.25f);
-			SetupBullet(entity, { x, pos.y }, size, dir, bullet);
+			SetupBullet(entity, { x, pos.y }, size, dir, weapon.bulletSpeed, bullet);
 			bullet = Find(gameplayTable, [](GameplayBitfield signature) {
 				return signature.none();
 			});
@@ -446,12 +462,18 @@ void Game::OnUpdate(float dt) {
 			weapon.nextTimeAvailable = ticks + weapon.fireRate;
 		}
 	});
+	
 	ApplySpeedToVelocity();
+
 
 	ApplyVelocity(dt);
 
-	auto enemies = Where<EntityContainer>(gameplayTable, [](EnemyAI, Position, Dimension){ return true; });
+	//constexpr auto testing = Signature2<GameplayTable>::Bits<Position>();
+	//using FilterType = Signature2<GameplayTable>::Filter<Position, Dimension>;
+	//constexpr auto testing = Signature2<GameplayTable>::Filter<Position, Dimension>::Bits();
 
+	//auto enemies = Where<EntityContainer>(gameplayTable, [](EnemyAI, Position, Dimension){ return true; });
+	auto enemies = Where<EntityContainer, EnemyAI, Position, Dimension>(gameplayTable);
 	For(gameplayTable, [&enemies](Entity entity, Bullet bullet, Position pos, Dimension dim) {
 		for (auto enemy : enemies) {
 			if (enemy != bullet.owner) {
@@ -503,5 +525,28 @@ void Game::OnRender(float dt, SDL_Renderer* renderer) {
 	DrawRect(renderer);
 	DrawSprite(renderer);
 	DrawLookDirection(renderer);
+
+	
+
+	auto fontEntity = Find(fontTable, [](TTF_Font* font) { return font != nullptr; });
+	auto font = Get<TTF_Font*>(fontTable, fontEntity);
+	std::string text{ "DT: " };
+	text += std::to_string(dt);
+	auto fontSurface = TTF_RenderUTF8_Solid_Wrapped(font, text.c_str(), { 255, 255, 255, 255 }, 200);
+	SDL_Texture* fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+	// TODO: 
+	// 1. Each character (glyph) to texture
+	// 2. Each texture corresponds to char
+	// 3. Text wrapping might become painfull :(( 
+
+	int w;
+	int h;
+	SDL_QueryTexture(fontTexture, nullptr, nullptr, &w, &h);
+	SDL_Rect src { 0, 0, w, h };
+	SDL_Rect dst { 16, 600, w, h };
+	SDL_RenderCopy(renderer, fontTexture, &src, &dst);
+
+	SDL_FreeSurface(fontSurface);
+	SDL_DestroyTexture(fontTexture);
 }
 

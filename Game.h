@@ -2,6 +2,8 @@
 
 #include <vector>
 #include "Application.h"
+#include "DebugWindow.h"
+#include <thread>
 using Entity = size_t;
 
 class Game : public Application {
@@ -10,7 +12,7 @@ public:
 
 	~Game();
 
+private:
 	virtual void OnUpdate(float dt) final;
 	virtual void OnRender(float dt, SDL_Renderer* renderer) final;
-
 };
