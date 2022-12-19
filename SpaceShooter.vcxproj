@@ -152,13 +152,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Application.cpp" />
-    <ClCompile Include="DebugWindow.cpp" />
     <ClCompile Include="Game.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Application.h" />
-    <ClInclude Include="DebugWindow.h" />
     <ClInclude Include="Entities.h" />
     <ClInclude Include="Game.h" />
     <ClInclude Include="static_vector.hpp" />

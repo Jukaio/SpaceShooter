@@ -1,0 +1,48 @@
+﻿  Application.cpp
+C:\Users\jukai\Documents\SpaceShooter\Application.cpp(30,7): warning C4189: 'err': local variable is initialized but not referenced
+  Game.cpp
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(238,41): warning C4100: 'input': unreferenced formal parameter
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(278,74): warning C4100: 'entity': unreferenced formal parameter
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(313,9): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(314,9): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(320,11): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(321,11): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(331,19): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(331,19): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(331,22): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(331,22): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(311,7): warning C4101: 'height': unreferenced local variable
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(310,7): warning C4101: 'width': unreferenced local variable
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(370,9): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(371,9): warning C4244: 'initializing': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(377,11): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(378,11): warning C4244: '+=': conversion from 'float' to 'int', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(389,18): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(389,18): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(389,21): warning C4838: conversion from 'int' to 'float' requires a narrowing conversion
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(389,21): warning C4244: 'initializing': conversion from 'int' to 'float', possible loss of data
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(508,55): warning C4458: declaration of 'renderer' hides class member
+C:\Users\jukai\Documents\SpaceShooter\Application.h(43,16): message : see declaration of 'Application::renderer'
+C:\Users\jukai\Documents\SpaceShooter\Entities.h(566,14): warning C4189: 'max': local variable is initialized but not referenced
+C:\Users\jukai\Documents\SpaceShooter\Entities.h(530): message : see reference to function template instantiation 'T Find::<lambda_2>::operator ()<0>(std::integer_sequence<size_t,0>) const' being compiled
+          with
+          [
+              T=Entity
+          ]
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(174): message : see reference to function template instantiation 'Entity Find<,TextureName,std::filesystem::path,SDL_Texture*,TileProperty,SpriteProperty,256,SetupBullet::<lambda_1>>(std::tuple<itlib::static_vector<Entity,256>,itlib::static_vector<std::bitfield<5>,256>,itlib::static_vector<TextureName,256>,itlib::static_vector<std::filesystem::path,256>,itlib::static_vector<SDL_Texture *,256>,itlib::static_vector<TileProperty,256>,itlib::static_vector<SpriteProperty,256>> &,Func)' being compiled
+          with
+          [
+              Func=SetupBullet::<lambda_1>
+          ]
+C:\Users\jukai\Documents\SpaceShooter\Entities.h(588,19): warning C4189: 'tupleSize': local variable is initialized but not referenced
+C:\Users\jukai\Documents\SpaceShooter\Game.cpp(254): message : see reference to function template instantiation 'void For<,TextureID,EnemyGroupMember,EnemyAI,EnemyRow,SingleShot,DoubleShot,ColliderID,Position,LookDirection,Dimension,Input,Bullet,Speed,Velocity,Color,10240,ApplyInputToVelocity::<lambda_1>>(std::tuple<itlib::static_vector<Entity,10240>,itlib::static_vector<std::bitfield<15>,10240>,itlib::static_vector<TextureID,10240>,itlib::static_vector<EnemyGroupMember,10240>,itlib::static_vector<EnemyAI,10240>,itlib::static_vector<EnemyRow,10240>,itlib::static_vector<SingleShot,10240>,itlib::static_vector<DoubleShot,10240>,itlib::static_vector<ColliderID,10240>,itlib::static_vector<Position,10240>,itlib::static_vector<LookDirection,10240>,itlib::static_vector<Dimension,10240>,itlib::static_vector<Input,10240>,itlib::static_vector<Bullet,10240>,itlib::static_vector<Speed,10240>,itlib::static_vector<Velocity,10240>,itlib::static_vector<Color,10240>> &,Func)' being compiled
+          with
+          [
+              Func=ApplyInputToVelocity::<lambda_1>
+          ]
+  main.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 1265 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  SpaceShooter.vcxproj -> C:\Users\jukai\Documents\SpaceShooter\x64\Release\SpaceShooter.exe

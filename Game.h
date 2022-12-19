@@ -2,7 +2,7 @@
 
 #include <vector>
 #include "Application.h"
-#include "DebugWindow.h"
+
 #include <thread>
 using Entity = size_t;
 

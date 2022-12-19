@@ -62,7 +62,7 @@ struct EnemyGroupMember {
 };
 
 struct TextureName {
-	std::string value; // Just stay short string pls
+	std::string value;
 };
 
 struct TileProperty {
@@ -338,17 +338,6 @@ void DrawRect(SDL_Renderer* renderer) {
 void DrawLookDirection(SDL_Renderer* renderer) {
 	SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);
 
-	// Something like this might be better
-	//EntityContainer nonEnemyGroupMembers{ };
-	//auto enemyGroupMembers = Where<EntityContainer>(gameplayTable, [&nonEnemyGroupMembers](Entity entity, Position pos, Dimension size, LookDirection dir) {
-	//	if (!Has<EnemyGroupMember>(gameplayTable, entity)) {
-	//		nonEnemyGroupMembers.push_back(entity);
-	//		return false;
-	//	}
-	//	return true; 
-	//});
-
-
 	For(gameplayTable, [renderer](Entity entity, Position pos, Dimension size, LookDirection dir) {
 		float x = pos.x + (size.w * 0.5f);
 		float y = pos.y + (size.h * 0.5f);
@@ -468,11 +457,6 @@ void Game::OnUpdate(float dt) {
 
 	ApplyVelocity(dt);
 
-	//constexpr auto testing = Signature2<GameplayTable>::Bits<Position>();
-	//using FilterType = Signature2<GameplayTable>::Filter<Position, Dimension>;
-	//constexpr auto testing = Signature2<GameplayTable>::Filter<Position, Dimension>::Bits();
-
-	//auto enemies = Where<EntityContainer>(gameplayTable, [](EnemyAI, Position, Dimension){ return true; });
 	auto enemies = Where<EntityContainer, EnemyAI, Position, Dimension>(gameplayTable);
 	For(gameplayTable, [&enemies](Entity entity, Bullet bullet, Position pos, Dimension dim) {
 		for (auto enemy : enemies) {
@@ -494,7 +478,7 @@ void Game::OnUpdate(float dt) {
 						}
 					}
 				}
-
+				
 				SDL_FRect enemyRect{ enemyPos.x, enemyPos.y, enemyDim.w, enemyDim.h };
 				SDL_FRect bulletRect{ pos.x, pos.y, dim.w, dim.h };
 				SDL_FRect result;
@@ -534,11 +518,12 @@ void Game::OnRender(float dt, SDL_Renderer* renderer) {
 	text += std::to_string(dt);
 	auto fontSurface = TTF_RenderUTF8_Solid_Wrapped(font, text.c_str(), { 255, 255, 255, 255 }, 200);
 	SDL_Texture* fontTexture = SDL_CreateTextureFromSurface(renderer, fontSurface);
+	
+	
 	// TODO: 
 	// 1. Each character (glyph) to texture
 	// 2. Each texture corresponds to char
 	// 3. Text wrapping might become painfull :(( 
-
 	int w;
 	int h;
 	SDL_QueryTexture(fontTexture, nullptr, nullptr, &w, &h);
